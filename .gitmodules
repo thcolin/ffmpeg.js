@@ -34,3 +34,7 @@
 	path = build/ffmpeg-mp4
 	url = https://git.ffmpeg.org/ffmpeg.git
 	ignore = dirty
+[submodule "build/ffmpeg-youtube"]
+	path = build/ffmpeg-youtube
+	url = https://git.ffmpeg.org/ffmpeg.git
+	ignore = dirty
