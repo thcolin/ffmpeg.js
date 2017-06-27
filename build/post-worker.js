@@ -22,10 +22,10 @@ self.onmessage = function(e, foo) {
   var msg = e.data;
   if (msg["type"] == "run") {
     if (__ffmpegjs_running) {
-      self.postMessage({"type": "error", "data": "already running"}, "*");
+      self.postMessage({"type": "error", "data": "already running"});
     } else {
       __ffmpegjs_running = true;
-      self.postMessage({"type": "run"}, "*");
+      self.postMessage({"type": "run"});
       var opts = {};
       Object.keys(msg).forEach(function(key) {
         if (key !== "type") {
@@ -38,29 +38,26 @@ self.onmessage = function(e, foo) {
         // messing with other handlers anyway.
       };
       opts["stdout"] = makeOutHandler(function(line) {
-        self.postMessage({"type": "stdout", "data": line}, "*");
+        self.postMessage({"type": "stdout", "data": line});
       });
       opts["stderr"] = makeOutHandler(function(line) {
-        self.postMessage({"type": "stderr", "data": line}, "*");
+        self.postMessage({"type": "stderr", "data": line});
       });
       opts["onExit"] = function(code) {
         // Flush buffers.
         opts["stdout"](0, true);
         opts["stderr"](0, true);
-        self.postMessage({"type": "exit", "data": code}, "*");
+        self.postMessage({"type": "exit", "data": code});
       };
       // TODO(Kagami): Should we wrap this function into try/catch in
       // case of possible exception?
       var result = __ffmpegjs(opts);
-      var transfer = result["MEMFS"].map(function(file) {
-        return file["data"].buffer;
-      });
-      self.postMessage({"type": "done", "data": result}, transfer);
+      self.postMessage({"type": "done", "data": result});
       __ffmpegjs_running = false;
     }
   } else {
-    self.postMessage({"type": "error", "data": "unknown command"}, "*");
+    self.postMessage({"type": "error", "data": "unknown command"});
   }
 };
 
-self.postMessage({"type": "ready"}, "*");
+self.postMessage({"type": "ready"});
