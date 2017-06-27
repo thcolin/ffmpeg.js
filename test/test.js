@@ -5,10 +5,21 @@ var path = require("path");
 var Worker = require("webworker-threads").Worker;
 var ffmpeg_webm = require("../ffmpeg-webm");
 var ffmpeg_mp4 = require("../ffmpeg-mp4");
+var ffmpeg_youtube = require("../ffmpeg-youtube");
+var testDataCache = {}
 
 function noop() {}
-var testDataPath = path.join(__dirname, "test.webm");
-var testData = new Uint8Array(fs.readFileSync(testDataPath));
+function testData(format, youtube){
+  format = format || 'webm';
+  var filename = (youtube ? 'youtube':'test');
+  var filepath = path.join(__dirname, filename + "." + format);
+
+  if(!testDataCache[filepath]){
+    testDataCache[filepath] = new Uint8Array(fs.readFileSync(filepath));
+  }
+
+  return testDataCache[filepath];
+}
 // Mute uncaughtException warnings.
 process.setMaxListeners(30);
 
@@ -72,7 +83,7 @@ describe("WebM", function() {
         print: noop,
         printErr: noop,
         onExit: function(v) {code = v},
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
@@ -96,7 +107,7 @@ describe("WebM", function() {
         print: noop,
         printErr: noop,
         onExit: function(v) {code = v},
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
@@ -119,13 +130,13 @@ describe("WebM", function() {
         print: noop,
         printErr: noop,
         onExit: function(v) {code = v},
-        MEMFS: [{name: "test.webm", data: testData.buffer}],
+        MEMFS: [{name: "test.webm", data: testData().buffer}],
       });
       expect(code).to.equal(0);
     });
 
     it("should accept Array in MEMFS input", function() {
-      var data = Array.prototype.slice.call(testData);
+      var data = Array.prototype.slice.call(testData());
       var code;
       ffmpeg_webm({
         arguments: [
@@ -144,7 +155,7 @@ describe("WebM", function() {
     });
 
     it("should accept Uint16Array in MEMFS input", function() {
-      var data = new Uint16Array(testData.buffer);
+      var data = new Uint16Array(testData().buffer);
       var code;
       ffmpeg_webm({
         arguments: [
@@ -175,7 +186,7 @@ describe("WebM", function() {
         print: noop,
         printErr: noop,
         onExit: function(v) {code = v},
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
@@ -196,7 +207,7 @@ describe("WebM", function() {
         stdin: noop,
         print: noop,
         printErr: noop,
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(res.MEMFS).to.have.length(1);
       expect(res.MEMFS[0].name).to.equal("__proto__");
@@ -213,7 +224,7 @@ describe("WebM", function() {
         stdin: noop,
         print: noop,
         printErr: noop,
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(res.MEMFS).to.have.length(1);
       expect(res.MEMFS[0].name).to.equal("out.webm");
@@ -233,7 +244,7 @@ describe("WebM", function() {
         print: noop,
         printErr: noop,
         onExit: function(v) {code = v},
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(code).to.equal(0);
     });
@@ -249,7 +260,7 @@ describe("WebM", function() {
         stdin: noop,
         print: noop,
         printErr: noop,
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(res.MEMFS).to.have.length(1);
       var file = res.MEMFS[0];
@@ -326,7 +337,7 @@ describe("WebM", function() {
               "-an",
               "out.webm",
             ],
-            MEMFS: [{name: "test.webm", data: testData}],
+            MEMFS: [{name: "test.webm", data: testData()}],
           });
           break;
         case "done":
@@ -377,7 +388,7 @@ describe("MP4", function() {
         print: noop,
         printErr: noop,
         onExit: function(v) {code = v},
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
@@ -398,7 +409,7 @@ describe("MP4", function() {
         stdin: noop,
         print: noop,
         printErr: noop,
-        MEMFS: [{name: "test.webm", data: testData}],
+        MEMFS: [{name: "test.webm", data: testData()}],
       });
       expect(res.MEMFS).to.have.length(1);
       var file = res.MEMFS[0];
@@ -414,6 +425,341 @@ describe("MP4", function() {
       var stdout = "";
       var stderr = "";
       var worker = new Worker("ffmpeg-worker-mp4.js");
+      worker.onerror = done;
+      worker.onmessage = function(e) {
+        var msg = e.data;
+        switch (msg.type) {
+        case "ready":
+          worker.postMessage({type: "run", arguments: ["-version"]});
+          break;
+        case "stdout":
+          stdout += msg.data + "\n";
+          break;
+        case "stderr":
+          stderr += msg.data + "\n";
+          break;
+        case "exit":
+          expect(stderr).to.be.empty;
+          expect(msg.data).to.equal(0);
+          expect(stdout).to.match(/^ffmpeg version /);
+          worker.terminate();
+          done();
+          break;
+        }
+      };
+    });
+  });
+});
+
+describe("Youtube", function() {
+  this.timeout(10000);
+
+  describe("Sync", function() {
+    it("should print version to stdout", function(done) {
+      var stdout = "";
+      var stderr = "";
+      ffmpeg_youtube({
+        arguments: ["-version"],
+        print: function(data) { stdout += data + "\n"; },
+        printErr: function(data) { stderr += data + "\n"; },
+        onExit: function(code) {
+          expect(code).to.equal(0);
+          expect(stderr).to.be.empty;
+          expect(stdout).to.match(/^ffmpeg version /);
+          done();
+        },
+      });
+    });
+
+    it("should extract original audio from 3gp test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.3gp",
+          "-vn",
+          "-c:a", "copy",
+          "youtube.aac",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.3gp", data: testData('3gp', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.aac");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should extract original audio from mp4 test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.mp4",
+          "-vn",
+          "-c:a", "copy",
+          "youtube.aac",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.mp4", data: testData('mp4', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.aac");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should extract original audio from webm test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.webm",
+          "-vn",
+          "-c:a", "copy",
+          "youtube.ogg",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.webm", data: testData('webm', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.ogg");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode M4A/AAC test file to MP3 at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.m4a",
+          "-c:a", "libmp3lame",
+          "youtube.mp3",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.m4a", data: testData('m4a', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.mp3");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode M4A/AAC test file to VORBIS at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.m4a",
+          "-c:a", "vorbis",
+          '-strict', '-2',
+          "youtube.ogg",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.m4a", data: testData('m4a', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.ogg");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode M4A/AAC test file to OPUS at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.m4a",
+          "-c:a", "libopus",
+          "youtube.opus",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.m4a", data: testData('m4a', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.opus");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode OGG/VORBIS test file to MP3 at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.ogg",
+          "-c:a", "libmp3lame",
+          "youtube.mp3",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.ogg", data: testData('ogg', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.mp3");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode OGG/VORBIS test file to AAC at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.ogg",
+          "-c:a", "aac",
+          "youtube.aac",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.ogg", data: testData('ogg', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.aac");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode OGG/VORBIS test file to OPUS at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.ogg",
+          "-c:a", "libopus",
+          "youtube.opus",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.ogg", data: testData('ogg', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.opus");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode OPUS test file to MP3 at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.opus",
+          "-c:a", "libmp3lame",
+          "youtube.mp3",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.opus", data: testData('opus', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.mp3");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode OPUS test file to VORBIS at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.opus",
+          "-c:a", "vorbis",
+          '-strict', '-2',
+          "youtube.ogg",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.opus", data: testData('opus', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.ogg");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should encode OPUS test file to AAC at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.opus",
+          "-c:a", "aac",
+          "youtube.aac",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.opus", data: testData('opus', true)}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var file = res.MEMFS[0];
+      expect(file.name).to.equal("youtube.aac");
+      expect(file.data.length).to.be.above(0);
+      expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+  });
+
+  // TODO(Kagami): Test worker builds with Karma. node-webworker-threads
+  // has too many bugs.
+  describe.skip("Worker", function() {
+    it("should print version to stdout", function(done) {
+      var stdout = "";
+      var stderr = "";
+      var worker = new Worker("ffmpeg-worker-youtube.js");
       worker.onerror = done;
       worker.onmessage = function(e) {
         var msg = e.data;
