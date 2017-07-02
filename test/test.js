@@ -2,6 +2,7 @@
 var expect = require("chai").expect;
 var fs = require("fs");
 var path = require("path");
+var md5 = require("js-md5");
 var Worker = require("webworker-threads").Worker;
 var ffmpeg_webm = require("../ffmpeg-webm");
 var ffmpeg_mp4 = require("../ffmpeg-mp4");
@@ -479,7 +480,7 @@ describe("Youtube", function() {
           "-i", "youtube.3gp",
           "-vn",
           "-c:a", "copy",
-          "youtube.aac",
+          "youtube.m4a",
         ],
         stdin: noop,
         print: noop,
@@ -490,7 +491,7 @@ describe("Youtube", function() {
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
       var file = res.MEMFS[0];
-      expect(file.name).to.equal("youtube.aac");
+      expect(file.name).to.equal("youtube.m4a");
       expect(file.data.length).to.be.above(0);
       expect(file.data).to.be.an.instanceof(Uint8Array);
     });
@@ -503,7 +504,7 @@ describe("Youtube", function() {
           "-i", "youtube.mp4",
           "-vn",
           "-c:a", "copy",
-          "youtube.aac",
+          "youtube.m4a",
         ],
         stdin: noop,
         print: noop,
@@ -514,7 +515,7 @@ describe("Youtube", function() {
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
       var file = res.MEMFS[0];
-      expect(file.name).to.equal("youtube.aac");
+      expect(file.name).to.equal("youtube.m4a");
       expect(file.data.length).to.be.above(0);
       expect(file.data).to.be.an.instanceof(Uint8Array);
     });
@@ -643,7 +644,7 @@ describe("Youtube", function() {
         arguments: [
           "-i", "youtube.ogg",
           "-c:a", "aac",
-          "youtube.aac",
+          "youtube.m4a",
         ],
         stdin: noop,
         print: noop,
@@ -654,7 +655,7 @@ describe("Youtube", function() {
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
       var file = res.MEMFS[0];
-      expect(file.name).to.equal("youtube.aac");
+      expect(file.name).to.equal("youtube.m4a");
       expect(file.data.length).to.be.above(0);
       expect(file.data).to.be.an.instanceof(Uint8Array);
     });
@@ -736,7 +737,7 @@ describe("Youtube", function() {
         arguments: [
           "-i", "youtube.opus",
           "-c:a", "aac",
-          "youtube.aac",
+          "youtube.m4a",
         ],
         stdin: noop,
         print: noop,
@@ -747,9 +748,121 @@ describe("Youtube", function() {
       expect(code).to.equal(0);
       expect(res.MEMFS).to.have.length(1);
       var file = res.MEMFS[0];
-      expect(file.name).to.equal("youtube.aac");
+      expect(file.name).to.equal("youtube.m4a");
       expect(file.data.length).to.be.above(0);
       expect(file.data).to.be.an.instanceof(Uint8Array);
+    });
+
+    it("should set metadata to M4A/AAC test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var infile = testData('m4a', true);
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.m4a",
+          "-metadata", "title='title'",
+          "-metadata", "artist='artist'",
+          "-c:a", "copy",
+          "out.m4a",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.m4a", data: infile}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var outfile = res.MEMFS[0];
+      expect(outfile.name).to.equal("out.m4a");
+      expect(outfile.data.length).to.be.above(0);
+      expect(outfile.data).to.be.an.instanceof(Uint8Array);
+      expect(md5(infile)).to.equal("704ac1f7377cd154103cbd59797b1ebf");
+      expect(md5(outfile.data)).to.equal("5e077b88c502325f9704bf2347ba9324");
+    });
+
+    xit("should set metadata to OGG/VORBIS test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var infile = testData('ogg', true);
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.ogg",
+          "-metadata", "title='title'",
+          "-metadata", "artist='artist'",
+          "-c:a", "copy",
+          "out.ogg",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.ogg", data: infile}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var outfile = res.MEMFS[0];
+      expect(outfile.name).to.equal("out.ogg");
+      expect(outfile.data.length).to.be.above(0);
+      expect(outfile.data).to.be.an.instanceof(Uint8Array);
+      expect(md5(infile)).to.equal("c12956d2c401604e7177f51f9e4e8e54");
+      expect(md5(outfile.data)).to.equal("f6ca501c6f0806967629d3eb69df8649"); // random
+    });
+
+    xit("should set metadata to OPUS test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var infile = testData('opus', true);
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.opus",
+          "-metadata", "title='title'",
+          "-metadata", "artist='artist'",
+          "-c:a", "copy",
+          "out.opus",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.opus", data: infile}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var outfile = res.MEMFS[0];
+      expect(outfile.name).to.equal("out.opus");
+      expect(outfile.data.length).to.be.above(0);
+      expect(outfile.data).to.be.an.instanceof(Uint8Array);
+      expect(md5(infile)).to.equal("8d5f0bea3b8b7367d8b2fe8676282fbf");
+      expect(md5(outfile.data)).to.equal("210e54c63e81fbe076218fed8b00c355"); // random
+    });
+
+    it("should set metadata to MP3 test file at MEMFS", function() {
+      this.timeout(60000);
+      var code;
+      var infile = testData('mp3', true);
+      var res = ffmpeg_youtube({
+        arguments: [
+          "-i", "youtube.mp3",
+          "-metadata", "title='title'",
+          "-metadata", "artist='artist'",
+          "-c:a", "copy",
+          "out.mp3",
+        ],
+        stdin: noop,
+        print: noop,
+        printErr: noop,
+        onExit: function(v) {code = v},
+        MEMFS: [{name: "youtube.mp3", data: infile}],
+      });
+      expect(code).to.equal(0);
+      expect(res.MEMFS).to.have.length(1);
+      var outfile = res.MEMFS[0];
+      expect(outfile.name).to.equal("out.mp3");
+      expect(outfile.data.length).to.be.above(0);
+      expect(outfile.data).to.be.an.instanceof(Uint8Array);
+      expect(md5(infile)).to.equal("b2ec972a59aa30ef7dce456a6b706004");
+      expect(md5(outfile.data)).to.equal("e25d7115ec22697be1873f3297af8fe1");
     });
   });
 

@@ -16,8 +16,8 @@ COMMON_DECODERS = \
 	mp3 ac3 aac \
 	ass ssa srt webvtt
 
-YOUTUBE_DEMUXERS = matroska ogg mov mpegps
-YOUTUBE_DECODERS = aac vorbis opus
+YOUTUBE_DEMUXERS = matroska ogg mov mpegps mp3
+YOUTUBE_DECODERS = aac vorbis opus mp3
 
 WEBM_MUXERS = webm ogg null image2
 WEBM_ENCODERS = libvpx_vp8 libopus mjpeg
@@ -45,7 +45,7 @@ MP4_SHARED_DEPS = \
 	build/lame/dist/lib/libmp3lame.so \
 	build/x264/dist/lib/libx264.so
 
-YOUTUBE_MUXERS = adts ogg mp3
+YOUTUBE_MUXERS = ipod ogg mp3
 YOUTUBE_ENCODERS = aac vorbis libopus libmp3lame
 FFMPEG_YOUTUBE_BC = build/ffmpeg-youtube/ffmpeg.bc
 FFMPEG_YOUTUBE_PC_PATH_ = \
