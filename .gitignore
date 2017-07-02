@@ -1,3 +1,4 @@
 /node_modules/
 /ffmpeg*.js
 package-lock.json
+/test/out.*
