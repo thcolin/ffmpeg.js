@@ -3,7 +3,7 @@
 
 var __ffmpegjs_running = false;
 
-self.onmessage = function(e) {
+self.onmessage = function(e, foo) {
   function makeOutHandler(cb) {
     var buf = [];
     return function(ch, exit) {
@@ -52,10 +52,7 @@ self.onmessage = function(e) {
       // TODO(Kagami): Should we wrap this function into try/catch in
       // case of possible exception?
       var result = __ffmpegjs(opts);
-      var transfer = result["MEMFS"].map(function(file) {
-        return file["data"].buffer;
-      });
-      self.postMessage({"type": "done", "data": result}, transfer);
+      self.postMessage({"type": "done", "data": result});
       __ffmpegjs_running = false;
     }
   } else {
